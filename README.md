@@ -7,15 +7,15 @@
 ```mermaid
 flowchart TB
     P["Producer"] -->|"POST /v1/events"| I["Ingest Handler"]
-    I -->|"有界入队\n满则 429 + Retry-After"| Q["Redis List\nqueue:{tenant}"]
-    Q -->|"LMOVE 原子出队"| W["Worker Pool\n租户并发上限 + 全局信号量"]
-    W -->|"HTTP POST\nIdempotency-Key"| D["下游 Webhook\nMock Receiver 用于测试"]
+    I -->|"有界入队 满则 429 + Retry-After"| Q["Redis List (queue_{tenant})"]
+    Q -->|"LMOVE 原子出队"| W["Worker Pool (租户并发 + 全局信号量)"]
+    W -->|"HTTP POST 透传 Idempotency-Key"| D["下游 Webhook (Mock Receiver)"]
 
-    W -->|"失败 指数退避"| Z["delay:{tenant}\nZSET"]
+    W -->|"失败 指数退避"| Z["delay_{tenant} ZSET"]
     Z -->|"Scheduler 到期搬回"| Q
-    W -->|"超投递窗口"| DLQ["dlq:{tenant}"]
+    W -->|"超投递窗口"| DLQ["dlq_{tenant}"]
 
-    R["Reaper"] -->|"回收租约过期的 inflight 任务\ntoken 递增 重回队列"| W
+    R["Reaper"] -->|"回收过期 inflight 任务并重回队列"| W
 
     I --> M["Prometheus /metrics"]
     W --> M
