@@ -1,0 +1,46 @@
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  relay:
+    build: .
+    environment:
+      REDIS_ADDR: redis:6379
+      HTTP_ADDR: ":8080"
+      TENANTS: "t1=http://mock:9000"
+    ports:
+      - "8080:8080"   # ingest + /metrics
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  mock:
+    build:
+      context: .
+      dockerfile: cmd/mock/Dockerfile
+    environment:
+      LISTEN: ":9000"
+    ports:
+      - "9000:9000"
+
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9091:9090"
+    depends_on:
+      - relay
+
+volumes:
+  redis-data:

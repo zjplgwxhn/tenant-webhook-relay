@@ -1,0 +1,4 @@
+/bin/
+redis-data/
+*.exe
+.superpowers/
