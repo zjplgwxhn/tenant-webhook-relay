@@ -4,24 +4,6 @@
 
 ## 核心架构
 
-```mermaid
-flowchart TB
-    P["Producer"] -->|"POST /v1/events"| I["Ingest Handler"]
-    I -->|"有界入队 满则 429 + Retry-After"| Q["Redis List (queue_{tenant})"]
-    Q -->|"LMOVE 原子出队"| W["Worker Pool (租户并发 + 全局信号量)"]
-    W -->|"HTTP POST 透传 Idempotency-Key"| D["下游 Webhook (Mock Receiver)"]
-
-    W -->|"失败 指数退避"| Z["delay_{tenant} ZSET"]
-    Z -->|"Scheduler 到期搬回"| Q
-    W -->|"超投递窗口"| DLQ["dlq_{tenant}"]
-
-    R["Reaper"] -->|"回收过期 inflight 任务并重回队列"| W
-
-    I --> M["Prometheus /metrics"]
-    W --> M
-    R --> M
-```
-
 投递任务的流转：`queue:{tenant}`（待投）→ `inflight:{tenant}`（在途，持租约 + fencing token）→ 终态（`delivered` / `dlq`），失败则经 `delay:{tenant}` 退避后重回队列。reaper 负责回收 worker 崩溃留下的孤儿任务。
 
 ## 核心设计决策
