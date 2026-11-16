@@ -7,11 +7,11 @@
 ```mermaid
 flowchart TB
     P[Producer] -->|"POST /v1/events"| I[Ingest Handler]
-    I -->|"LPUSH 有界入队<br/>满则 429 + Retry-After"| Q[("Redis List<br/>queue:{tenant}")]
+    I -->|"有界入队<br/>满则 429 + Retry-After"| Q[("Redis List<br/>queue:{tenant}")]
     Q -->|"LMOVE 原子出队"| W["Worker Pool<br/>租户并发上限 + 全局信号量"]
     W -->|"HTTP POST<br/>Idempotency-Key"| D["下游 Webhook<br/>（Mock Receiver 用于测试）"]
 
-    W -->|"失败 → 指数退避"| Z[("delay:{tenant}<br/>ZSET")]
+    W -->|"失败 -> 指数退避"| Z[("delay:{tenant}<br/>ZSET")]
     Z -->|"Scheduler 到期搬回"| Q
     W -->|"超投递窗口"| DLQ[("dlq:{tenant}")]
 
